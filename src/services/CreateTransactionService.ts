@@ -1,6 +1,8 @@
-import { getRepository } from 'typeorm';
+import { getCustomRepository, getRepository } from 'typeorm';
 
-// import AppError from '../errors/AppError';
+import AppError from '../errors/AppError';
+
+import TransactionsRepository from '../repositories/TransactionsRepository';
 
 import Transaction from '../models/Transaction';
 import Category from '../models/Category';
@@ -19,7 +21,15 @@ class CreateTransactionService {
     type,
     category,
   }: Request): Promise<Transaction> {
-    const transactionRepository = getRepository(Transaction);
+    const transactionsRepository = getCustomRepository(TransactionsRepository);
+
+    if (type === 'outcome') {
+      const { total: balance } = await transactionsRepository.getBalance();
+
+      if (balance - value < 0) {
+        throw new AppError('Invalid outcome value.', 400);
+      }
+    }
 
     const categoryRepository = getRepository(Category);
 
@@ -35,14 +45,14 @@ class CreateTransactionService {
       await categoryRepository.save(transactionCategory);
     }
 
-    const transaction = await transactionRepository.create({
+    const transaction = await transactionsRepository.create({
       title,
       value,
       type,
       category: transactionCategory,
     });
 
-    await transactionRepository.save(transaction);
+    await transactionsRepository.save(transaction);
 
     return transaction;
   }
